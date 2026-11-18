@@ -3,13 +3,12 @@ import {
   AlertTriangle,
   CalendarRange,
   Store,
-  Upload,
   Sparkles,
   Boxes,
   TrendingUp,
 } from 'lucide-react'
-import { SAMPLE_ROWS } from './data/sample'
 import { parseSalesFile } from './lib/parse'
+import { FilePicker } from './components/FilePicker'
 import {
   compact,
   forecastStoreCatalog,
@@ -28,11 +27,12 @@ const HORIZON_OPTIONS: { value: Horizon; label: string; hint: string }[] = [
 ]
 
 export default function App() {
-  const [rows, setRows] = useState<SaleRow[]>(SAMPLE_ROWS)
-  const [source, setSource] = useState('7-day sample across 3 stores')
+  const [rows, setRows] = useState<SaleRow[]>([])
+  const [source, setSource] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const [horizon, setHorizon] = useState<Horizon>(7)
-  const [storeName, setStoreName] = useState(SAMPLE_ROWS[0]?.storeName ?? '')
+  const [storeName, setStoreName] = useState('')
   const [query, setQuery] = useState('')
   const [icode, setIcode] = useState('')
 
@@ -69,6 +69,8 @@ export default function App() {
       : `${daysCovered} days of history loaded.`
 
   async function onUpload(file: File) {
+    setBusy(true)
+    setError('')
     try {
       const { rows: parsed, detail } = await parseSalesFile(file)
       if (!parsed.length) {
@@ -79,12 +81,34 @@ export default function App() {
       }
       setRows(parsed)
       setStoreName(parsed[0].storeName)
+      setQuery('')
       setIcode('')
       setSource(`${detail} · ${parsed.length} rows`)
-      setError('')
     } catch {
       setError('The file could not be parsed. Upload .xlsx, .xls, .csv or .tsv.')
+    } finally {
+      setBusy(false)
     }
+  }
+
+  if (!rows.length) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="panel w-full max-w-xl rounded-[32px] p-8 md:p-10">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-[#e2b657]">OneStop</p>
+          <h1 className="font-display mt-3 text-4xl leading-tight md:text-5xl">
+            Welcome to OneStop demand forecasting tool
+          </h1>
+          <p className="mt-4 text-base leading-7 text-[#b9b0a2]">
+            Upload your store sales file to predict weekly, 15-day and monthly demand by store and product. Nothing is forecast until you add data.
+          </p>
+          <div className="mt-8">
+            <FilePicker onFile={(file) => void onUpload(file)} busy={busy} />
+          </div>
+          {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -97,21 +121,23 @@ export default function App() {
             <p className="mt-2 text-sm text-[#b9b0a2]">Store-wise unit forecasts from POS lines.</p>
           </div>
 
-          <label className="gold-ring flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#e2b657]/10 px-3 py-3 text-sm text-[#e2b657]">
-            <Upload size={16} />
-            Upload Excel or CSV
-            <input
-              type="file"
-              accept=".xlsx,.xls,.xlsm,.csv,.tsv,.txt"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) void onUpload(file)
-              }}
-            />
-          </label>
+          <FilePicker onFile={(file) => void onUpload(file)} busy={busy} compact />
           <p className="mt-2 text-xs text-[#b9b0a2]">{source}</p>
           {error ? <p className="mt-2 text-xs text-rose-300">{error}</p> : null}
+          <button
+            type="button"
+            onClick={() => {
+              setRows([])
+              setStoreName('')
+              setSource('')
+              setQuery('')
+              setIcode('')
+              setError('')
+            }}
+            className="mt-3 text-xs text-[#b9b0a2] underline-offset-2 hover:text-[#e2b657] hover:underline"
+          >
+            Start over
+          </button>
 
           <div className="mt-6 space-y-2">
             <p className="text-[11px] uppercase tracking-[0.18em] text-[#b9b0a2]">Stores</p>
